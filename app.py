@@ -4,13 +4,14 @@ import os
 
 app = Flask(__name__)
 
-# Get absolute path of current file
+# Absolute path setup
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-
-# Build model path safely
 model_path = os.path.join(BASE_DIR, "model", "model.pkl")
 
-# Load model
+# Load model safely
+if not os.path.exists(model_path):
+    raise FileNotFoundError("Model file not found. Run train.py first.")
+
 model = joblib.load(model_path)
 
 @app.route('/')
@@ -20,17 +21,27 @@ def home():
 @app.route('/predict', methods=['POST'])
 def predict():
     try:
-        hours = float(request.form['hours'])
-        attendance = float(request.form['attendance'])
-        previous = float(request.form['previous'])
+        hours = request.form.get('hours', '')
+        attendance = request.form.get('attendance', '')
+        previous = request.form.get('previous', '')
 
-        data = [[hours, attendance, previous]]
+        # Convert safely
+        data = [[float(hours), float(attendance), float(previous)]]
         result = model.predict(data)[0]
 
-        return render_template('index.html', prediction=round(result, 2))
+        return render_template(
+            'index.html',
+            prediction=round(result, 2),
+            hours=hours,
+            attendance=attendance,
+            previous=previous
+        )
 
-    except:
-        return render_template('index.html', prediction="Invalid input!")
+    except ValueError:
+        return render_template(
+            'index.html',
+            prediction="Please enter valid numbers!"
+        )
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000)
